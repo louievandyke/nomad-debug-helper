@@ -109,11 +109,48 @@ func Build(raw *bundle.Bundle, info layout.Info) (*Bundle, error) {
 		}
 	}
 
+	// Fall back to cluster/agent-self.json's nested config.Version.
+	// index.json is in metadataNames but is Nomad's flat file-path array
+	// (fails json decode above, confirmed live), and agent-self.json isn't a
+	// "metadata file" by the generic top-level-string-field heuristic above
+	// since its version lives nested under "config", not at the top level.
+	if view.Metadata.NomadVersion == "" {
+		view.Metadata.NomadVersion = agentSelfVersion(raw)
+	}
+
 	if view.Metadata.NomadVersion == "" {
 		view.Warnings = append(view.Warnings, "No Nomad version was detected from the discovered metadata files.")
 	}
 
 	return view, nil
+}
+
+func agentSelfVersion(raw *bundle.Bundle) string {
+	file, ok := raw.Lookup("cluster/agent-self.json")
+	if !ok || file.Size > 1<<20 {
+		return ""
+	}
+
+	content, err := os.ReadFile(file.AbsPath)
+	if err != nil {
+		return ""
+	}
+
+	// config.Version is itself a nested VersionInfo object (BuildDate,
+	// Revision, Version, ...), not a plain string -- confirmed against a
+	// real bundle after an earlier, wrong assumption that it was a string
+	// one level up. The actual semver lives at config.Version.Version.
+	var payload struct {
+		Config struct {
+			Version struct {
+				Version string `json:"Version"`
+			} `json:"Version"`
+		} `json:"config"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.Config.Version.Version)
 }
 
 func parseMetadataDocument(file bundle.FileInfo) Document {
