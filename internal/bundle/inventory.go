@@ -9,9 +9,16 @@ import (
 	"strings"
 )
 
+// metadataNames intentionally excludes index.json: confirmed against real
+// `nomad operator debug` bundles that it's a flat JSON array of file paths,
+// not an object, so it can never satisfy the metadata-document heuristic in
+// model.Build (which extracts top-level string fields like nomad_version).
+// Treating it as CategoryJSON instead keeps it fully browsable via Raw Files
+// without a permanent, unactionable "json decode failed" row on the overview
+// page. The Nomad version itself is recovered separately from
+// cluster/agent-self.json.
 var metadataNames = map[string]struct{}{
 	"debug.json":    {},
-	"index.json":    {},
 	"manifest.json": {},
 	"meta.json":     {},
 	"metadata.json": {},
