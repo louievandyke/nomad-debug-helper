@@ -359,8 +359,8 @@ const overviewTemplate = `
         <div class="value">{{.SourceKind}}</div>
       </div>
       <div class="stat">
-        <span class="eyebrow">Nomad Version</span>
-        <div class="value">{{if .Metadata.NomadVersion}}{{.Metadata.NomadVersion}}{{else}}unknown{{end}}</div>
+        <span class="eyebrow">Agent Version</span>
+        <div class="value">{{if .Metadata.AgentVersion}}{{.Metadata.AgentVersion}}{{else}}unknown{{end}}</div>
       </div>
     </div>
   </section>

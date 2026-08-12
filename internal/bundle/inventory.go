@@ -99,7 +99,13 @@ func classify(relPath string) FileCategory {
 	base := filepath.Base(lower)
 	ext := strings.ToLower(filepath.Ext(lower))
 
-	if strings.Contains(lower, "pprof") || ext == ".prof" || ext == ".pprof" {
+	// base == "trace.out" catches Consul's execution trace artifact
+	// (`consul debug`), which shares no extension or path fragment with
+	// Nomad's trace_%04d.prof but is the same kind of binary profiling
+	// artifact -- it must land in CategoryPprof, not CategoryText, so the
+	// file browser offers "Analyze" instead of dumping raw trace bytes as
+	// text (see preview() in web/server.go).
+	if strings.Contains(lower, "pprof") || ext == ".prof" || ext == ".pprof" || base == "trace.out" {
 		return CategoryPprof
 	}
 	if strings.Contains(lower, "event") {
@@ -134,12 +140,14 @@ func classify(relPath string) FileCategory {
 // profile_%04d.prof, heap_%04d.prof, goroutine_%04d.prof, and
 // threadcreate_%04d.prof are gzip-compressed pprof protobufs; trace_%04d.prof
 // is a raw Go execution trace (`file` reports plain "data", not gzip) and
-// needs `go tool trace` instead.
+// needs `go tool trace` instead. Confirmed against a real `consul debug`
+// capture too: Consul's equivalent execution trace is named trace.out, not
+// trace_%04d.prof, so it needs its own check here.
 func classifyAnalysisTool(category FileCategory, baseName string) AnalysisTool {
 	if category != CategoryPprof {
 		return AnalysisToolNone
 	}
-	if strings.HasPrefix(baseName, "trace_") {
+	if strings.HasPrefix(baseName, "trace_") || baseName == "trace.out" {
 		return AnalysisToolTrace
 	}
 	return AnalysisToolPprof

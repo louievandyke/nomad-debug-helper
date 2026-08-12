@@ -56,3 +56,69 @@ func TestLoadMergesIntervalSnapshots(t *testing.T) {
 		t.Fatalf("unexpected samples in second collection: %+v", collections[1].Samples)
 	}
 }
+
+// TestLoadReadsConsulFlatLayout confirms Load falls back to a single
+// metrics.json holding consecutive, non-array-wrapped JSON objects -- how
+// `consul debug` writes it, verified against a real capture. This is not
+// valid JSON as a whole (`{...}{...}` is not `[{...},{...}]`), so a plain
+// json.Unmarshal into a slice would fail; regression-tests the streaming
+// decode in loadFlatLayout.
+func TestLoadReadsConsulFlatLayout(t *testing.T) {
+	root := t.TempDir()
+
+	contents := `{
+		"Timestamp": "2026-08-03 20:52:10 +0000 UTC",
+		"Gauges": [{"Name": "consul.node.autopilot.healthy", "Value": 1, "Labels": {}}],
+		"Counters": [{"Name": "consul.client.rpc", "Count": 2, "Sum": 2, "Labels": {}}],
+		"Samples": []
+	}{
+		"Timestamp": "2026-08-03 20:52:40 +0000 UTC",
+		"Gauges": [{"Name": "consul.node.autopilot.healthy", "Value": 1, "Labels": {}}],
+		"Counters": [],
+		"Samples": [{"Name": "consul.acl.ResolveToken", "Count": 15, "Mean": 0.0327, "Labels": {}}]
+	}`
+	if err := os.WriteFile(filepath.Join(root, "metrics.json"), []byte(contents), 0o644); err != nil {
+		t.Fatalf("write metrics.json: %v", err)
+	}
+
+	collections, err := Load(root)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+
+	if len(collections) != 2 {
+		t.Fatalf("collections = %d, want 2", len(collections))
+	}
+	if collections[0].Timestamp != "2026-08-03 20:52:10 +0000 UTC" {
+		t.Fatalf("first collection timestamp = %q, want first snapshot's", collections[0].Timestamp)
+	}
+	if len(collections[1].Samples) != 1 || collections[1].Samples[0].Name != "consul.acl.ResolveToken" {
+		t.Fatalf("unexpected samples in second collection: %+v", collections[1].Samples)
+	}
+}
+
+// TestLoadReadsConsulFlatLayoutFromNestedBundleDir confirms the fallback also
+// finds metrics.json one directory below root, for the case where layout
+// detection didn't descend into the archive's inner bundle directory (its
+// name varies per capture, e.g. "consul-debug-<timestamp>", and isn't a
+// recognized bundleRootMarkers entry).
+func TestLoadReadsConsulFlatLayoutFromNestedBundleDir(t *testing.T) {
+	root := t.TempDir()
+	innerDir := filepath.Join(root, "consul-debug-2026-08-03T13-52-10-0700")
+	if err := os.MkdirAll(innerDir, 0o755); err != nil {
+		t.Fatalf("mkdir inner dir: %v", err)
+	}
+
+	contents := `{"Timestamp": "2026-08-03 20:52:10 +0000 UTC", "Gauges": [], "Counters": [], "Samples": []}`
+	if err := os.WriteFile(filepath.Join(innerDir, "metrics.json"), []byte(contents), 0o644); err != nil {
+		t.Fatalf("write metrics.json: %v", err)
+	}
+
+	collections, err := Load(root)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(collections) != 1 {
+		t.Fatalf("collections = %d, want 1", len(collections))
+	}
+}
