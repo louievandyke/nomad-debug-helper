@@ -24,7 +24,7 @@ type Bundle struct {
 
 type Metadata struct {
 	RootName      string
-	NomadVersion  string
+	AgentVersion  string
 	CreatedAt     string
 	MetadataFiles []string
 	Documents     []Document
@@ -97,9 +97,9 @@ func Build(raw *bundle.Bundle, info layout.Info) (*Bundle, error) {
 		document := parseMetadataDocument(file)
 		view.Metadata.Documents = append(view.Metadata.Documents, document)
 
-		if view.Metadata.NomadVersion == "" {
+		if view.Metadata.AgentVersion == "" {
 			if version := findString(document.JSON, "nomad_version", "version"); version != "" {
-				view.Metadata.NomadVersion = version
+				view.Metadata.AgentVersion = version
 			}
 		}
 		if view.Metadata.CreatedAt == "" {
@@ -109,25 +109,66 @@ func Build(raw *bundle.Bundle, info layout.Info) (*Bundle, error) {
 		}
 	}
 
-	// Fall back to cluster/agent-self.json's nested config.Version.
-	// index.json is in metadataNames but is Nomad's flat file-path array
-	// (fails json decode above, confirmed live), and agent-self.json isn't a
-	// "metadata file" by the generic top-level-string-field heuristic above
-	// since its version lives nested under "config", not at the top level.
-	if view.Metadata.NomadVersion == "" {
-		view.Metadata.NomadVersion = agentSelfVersion(raw)
+	// Fall back to a product-specific "agent self" document. Neither
+	// Nomad's nor Consul's index.json exposes a plain top-level "version"
+	// string for the generic heuristic above to find (Nomad's index.json is
+	// a flat file-path array; Consul's uses "AgentVersion" alongside other
+	// capitalized, differently-shaped fields), so each product's real agent
+	// document is read directly instead.
+	if view.Metadata.AgentVersion == "" {
+		view.Metadata.AgentVersion = detectAgentVersion(raw)
 	}
 
-	if view.Metadata.NomadVersion == "" {
-		view.Warnings = append(view.Warnings, "No Nomad version was detected from the discovered metadata files.")
+	if view.Metadata.AgentVersion == "" {
+		view.Warnings = append(view.Warnings, "No agent version was detected from the discovered metadata files.")
 	}
 
 	return view, nil
 }
 
-func agentSelfVersion(raw *bundle.Bundle) string {
-	file, ok := raw.Lookup("cluster/agent-self.json")
-	if !ok || file.Size > 1<<20 {
+// detectAgentVersion tries each product's "agent self" document in turn,
+// since bundle root resolution doesn't always descend into the product's
+// inner directory (Consul's top-level files don't match any name in
+// bundleRootMarkers), lookups search by basename rather than assuming a
+// fixed path like "cluster/agent-self.json".
+func detectAgentVersion(raw *bundle.Bundle) string {
+	if file, ok := findByBasename(raw, "agent-self.json"); ok {
+		if version := nomadAgentSelfVersion(file); version != "" {
+			return version
+		}
+	}
+	if file, ok := findByBasename(raw, "agent.json"); ok {
+		if version := consulAgentVersion(file); version != "" {
+			return version
+		}
+	}
+	return ""
+}
+
+// findByBasename returns the shallowest file in the bundle whose basename
+// matches name.
+func findByBasename(raw *bundle.Bundle, name string) (bundle.FileInfo, bool) {
+	var best bundle.FileInfo
+	var found bool
+	for _, file := range raw.Files {
+		if filepath.Base(file.RelPath) != name {
+			continue
+		}
+		if !found || strings.Count(file.RelPath, "/") < strings.Count(best.RelPath, "/") {
+			best = file
+			found = true
+		}
+	}
+	return best, found
+}
+
+// nomadAgentSelfVersion reads Nomad's cluster/agent-self.json. Its
+// config.Version is itself a nested VersionInfo object (BuildDate, Revision,
+// Version, ...), not a plain string -- confirmed against a real bundle after
+// an earlier, wrong assumption that it was a string one level up. The actual
+// semver lives at config.Version.Version.
+func nomadAgentSelfVersion(file bundle.FileInfo) string {
+	if file.Size > 1<<20 {
 		return ""
 	}
 
@@ -136,10 +177,6 @@ func agentSelfVersion(raw *bundle.Bundle) string {
 		return ""
 	}
 
-	// config.Version is itself a nested VersionInfo object (BuildDate,
-	// Revision, Version, ...), not a plain string -- confirmed against a
-	// real bundle after an earlier, wrong assumption that it was a string
-	// one level up. The actual semver lives at config.Version.Version.
 	var payload struct {
 		Config struct {
 			Version struct {
@@ -151,6 +188,30 @@ func agentSelfVersion(raw *bundle.Bundle) string {
 		return ""
 	}
 	return strings.TrimSpace(payload.Config.Version.Version)
+}
+
+// consulAgentVersion reads `consul debug`'s agent.json, whose Config.Version
+// is a plain semver string -- unlike Nomad's nested VersionInfo object --
+// confirmed against a real capture.
+func consulAgentVersion(file bundle.FileInfo) string {
+	if file.Size > 1<<20 {
+		return ""
+	}
+
+	content, err := os.ReadFile(file.AbsPath)
+	if err != nil {
+		return ""
+	}
+
+	var payload struct {
+		Config struct {
+			Version string `json:"Version"`
+		} `json:"Config"`
+	}
+	if err := json.Unmarshal(content, &payload); err != nil {
+		return ""
+	}
+	return strings.TrimSpace(payload.Config.Version)
 }
 
 func parseMetadataDocument(file bundle.FileInfo) Document {

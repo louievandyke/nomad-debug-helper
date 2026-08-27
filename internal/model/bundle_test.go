@@ -51,11 +51,11 @@ func TestBuildDetectsVersionFromAgentSelf(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	if view.Metadata.NomadVersion != "1.10.0" {
-		t.Fatalf("NomadVersion = %q, want %q", view.Metadata.NomadVersion, "1.10.0")
+	if view.Metadata.AgentVersion != "1.10.0" {
+		t.Fatalf("AgentVersion = %q, want %q", view.Metadata.AgentVersion, "1.10.0")
 	}
 	for _, warning := range view.Warnings {
-		if warning == "No Nomad version was detected from the discovered metadata files." {
+		if warning == "No agent version was detected from the discovered metadata files." {
 			t.Fatalf("unexpected version-not-detected warning despite a valid agent-self.json")
 		}
 	}
@@ -75,17 +75,57 @@ func TestBuildWarnsWhenNoVersionFound(t *testing.T) {
 		t.Fatalf("build: %v", err)
 	}
 
-	if view.Metadata.NomadVersion != "" {
-		t.Fatalf("NomadVersion = %q, want empty", view.Metadata.NomadVersion)
+	if view.Metadata.AgentVersion != "" {
+		t.Fatalf("AgentVersion = %q, want empty", view.Metadata.AgentVersion)
 	}
 
 	found := false
 	for _, warning := range view.Warnings {
-		if warning == "No Nomad version was detected from the discovered metadata files." {
+		if warning == "No agent version was detected from the discovered metadata files." {
 			found = true
 		}
 	}
 	if !found {
 		t.Fatalf("expected version-not-detected warning when no agent-self.json is present")
+	}
+}
+
+// TestBuildDetectsVersionFromConsulAgent confirms the Consul fallback path:
+// agent.json's Config.Version is a plain semver string (unlike Nomad's
+// nested VersionInfo object at cluster/agent-self.json's config.Version),
+// and it lives at the bundle root, not under a "cluster" directory --
+// confirmed against a real `consul debug` capture.
+func TestBuildDetectsVersionFromConsulAgent(t *testing.T) {
+	root := t.TempDir()
+
+	agentPath := filepath.Join(root, "agent.json")
+	agentContents := `{
+		"Config": {
+			"Datacenter": "dc1",
+			"NodeName": "test-node",
+			"Server": true,
+			"Version": "1.21.0"
+		}
+	}`
+	if err := os.WriteFile(agentPath, []byte(agentContents), 0o644); err != nil {
+		t.Fatalf("write agent.json: %v", err)
+	}
+
+	raw := &bundle.Bundle{
+		SourcePath: root,
+		RootPath:   root,
+		SourceKind: bundle.SourceDirectory,
+		Files: []bundle.FileInfo{
+			{RelPath: "agent.json", AbsPath: agentPath, Size: int64(len(agentContents))},
+		},
+	}
+
+	view, err := Build(raw, layout.Info{})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if view.Metadata.AgentVersion != "1.21.0" {
+		t.Fatalf("AgentVersion = %q, want %q", view.Metadata.AgentVersion, "1.21.0")
 	}
 }

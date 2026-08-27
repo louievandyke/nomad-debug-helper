@@ -29,6 +29,7 @@ func TestInventoryClassifiesFiles(t *testing.T) {
 	writeFile("events/stream.json")
 	writeFile("client/node-1/profile_0000.prof")
 	writeFile("client/node-1/trace_0000.prof")
+	writeFile("trace.out")
 
 	files, err := Inventory(root)
 	if err != nil {
@@ -48,6 +49,9 @@ func TestInventoryClassifiesFiles(t *testing.T) {
 		"events/stream.json":              {category: CategoryEvent, role: RoleUnknown},
 		"client/node-1/profile_0000.prof": {category: CategoryPprof, role: RoleClient, agentID: "node-1", analysisTool: AnalysisToolPprof},
 		"client/node-1/trace_0000.prof":   {category: CategoryPprof, role: RoleClient, agentID: "node-1", analysisTool: AnalysisToolTrace},
+		// Consul's execution trace artifact (`consul debug`): no "pprof" path
+		// fragment, no trace_ prefix, just trace.out at the bundle root.
+		"trace.out": {category: CategoryPprof, role: RoleUnknown, analysisTool: AnalysisToolTrace},
 	}
 
 	for _, file := range files {
