@@ -7,6 +7,7 @@ type Count struct {
 
 type Info struct {
 	Kind          string
+	Product       string // "nomad" or "consul"
 	Confidence    string
 	MetadataFiles []string
 	Counts        []Count

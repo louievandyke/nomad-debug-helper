@@ -203,7 +203,7 @@ func (g *grafanaLauncher) start(ctx context.Context) error {
 		return fmt.Errorf("write grafana datasource cfg: %w", err)
 	}
 
-	dashboardsCfg := "\napiVersion: 1\nproviders:\n- name: default\n  orgId: 1\n  folder: nomad\n  type: file\n  disableDeletion: false\n  updateIntervalSeconds: 60\n  editable: true\n  options:\n    path: " + dashboardDir + "\n"
+	dashboardsCfg := "\napiVersion: 1\nproviders:\n- name: default\n  orgId: 1\n  folder: debug-metrics\n  type: file\n  disableDeletion: false\n  updateIntervalSeconds: 60\n  editable: true\n  options:\n    path: " + dashboardDir + "\n"
 	if err := os.WriteFile(filepath.Join(provDashboardsDir, "dashboards.yml"), []byte(dashboardsCfg), 0o644); err != nil {
 		return fmt.Errorf("write grafana dashboard cfg: %w", err)
 	}

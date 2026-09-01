@@ -129,3 +129,91 @@ func TestBuildDetectsVersionFromConsulAgent(t *testing.T) {
 		t.Fatalf("AgentVersion = %q, want %q", view.Metadata.AgentVersion, "1.21.0")
 	}
 }
+
+// TestBuildPopulatesConsulMetadata confirms that Build extracts Datacenter,
+// NodeName, DebugInterval, DebugDuration, and DebugTargets when the layout
+// product is "consul", using agent.json and index.json respectively --
+// confirmed shapes against a real `consul debug` capture.
+func TestBuildPopulatesConsulMetadata(t *testing.T) {
+	root := t.TempDir()
+
+	agentPath := filepath.Join(root, "agent.json")
+	agentContents := `{
+		"Config": {
+			"Datacenter": "dc1",
+			"NodeName": "my-node",
+			"Server": true,
+			"Version": "1.21.0"
+		}
+	}`
+	if err := os.WriteFile(agentPath, []byte(agentContents), 0o644); err != nil {
+		t.Fatalf("write agent.json: %v", err)
+	}
+
+	indexPath := filepath.Join(root, "index.json")
+	indexContents := `{
+		"Version": 1,
+		"AgentVersion": "1.21.0",
+		"Interval": "30s",
+		"Duration": "5m0s",
+		"Targets": ["metrics", "logs", "pprof"]
+	}`
+	if err := os.WriteFile(indexPath, []byte(indexContents), 0o644); err != nil {
+		t.Fatalf("write index.json: %v", err)
+	}
+
+	raw := &bundle.Bundle{
+		SourcePath: root,
+		RootPath:   root,
+		SourceKind: bundle.SourceDirectory,
+		Files: []bundle.FileInfo{
+			{RelPath: "agent.json", AbsPath: agentPath, Size: int64(len(agentContents))},
+			{RelPath: "index.json", AbsPath: indexPath, Size: int64(len(indexContents))},
+		},
+	}
+
+	view, err := Build(raw, layout.Info{Product: "consul"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if view.Metadata.Datacenter != "dc1" {
+		t.Fatalf("Datacenter = %q, want %q", view.Metadata.Datacenter, "dc1")
+	}
+	if view.Metadata.NodeName != "my-node" {
+		t.Fatalf("NodeName = %q, want %q", view.Metadata.NodeName, "my-node")
+	}
+	if view.Metadata.DebugInterval != "30s" {
+		t.Fatalf("DebugInterval = %q, want %q", view.Metadata.DebugInterval, "30s")
+	}
+	if view.Metadata.DebugDuration != "5m0s" {
+		t.Fatalf("DebugDuration = %q, want %q", view.Metadata.DebugDuration, "5m0s")
+	}
+	if len(view.Metadata.DebugTargets) != 3 || view.Metadata.DebugTargets[0] != "metrics" {
+		t.Fatalf("DebugTargets = %v, want [metrics logs pprof]", view.Metadata.DebugTargets)
+	}
+}
+
+// TestBuildDoesNotPopulateConsulMetadataForNomad confirms that Consul-specific
+// fields remain empty when the layout product is "nomad".
+func TestBuildDoesNotPopulateConsulMetadataForNomad(t *testing.T) {
+	root := t.TempDir()
+
+	raw := &bundle.Bundle{
+		SourcePath: root,
+		RootPath:   root,
+		SourceKind: bundle.SourceDirectory,
+	}
+
+	view, err := Build(raw, layout.Info{Product: "nomad"})
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+
+	if view.Metadata.Datacenter != "" {
+		t.Fatalf("Datacenter = %q, want empty for Nomad bundle", view.Metadata.Datacenter)
+	}
+	if view.Metadata.DebugInterval != "" {
+		t.Fatalf("DebugInterval = %q, want empty for Nomad bundle", view.Metadata.DebugInterval)
+	}
+}
