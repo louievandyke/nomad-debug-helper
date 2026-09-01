@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/louie/nomad-debug-helper/internal/bundle"
+	"github.com/louie/nomad-debug-helper/internal/layout"
 	"github.com/louie/nomad-debug-helper/internal/metrics"
 	"github.com/louie/nomad-debug-helper/internal/model"
 )
@@ -55,6 +56,7 @@ func (s *Server) Cleanup() error {
 type filePageData struct {
 	SourcePath string
 	RootPath   string
+	Layout     layout.Info
 	Bundle     *model.Bundle
 	Files      []model.File
 	Current    filePreview
@@ -135,6 +137,7 @@ func (s *Server) handleFiles(w http.ResponseWriter, r *http.Request) {
 	data := filePageData{
 		SourcePath: s.view.SourcePath,
 		RootPath:   s.view.RootPath,
+		Layout:     s.view.Layout,
 		Bundle:     s.view,
 		Files:      s.view.Files,
 	}
@@ -202,7 +205,7 @@ const baseTemplate = `
 <html>
   <head>
     <meta charset="utf-8">
-    <title>nomad-debug-helper</title>
+    <title>{{if eq .Layout.Product "consul"}}consul-debug-helper{{else}}nomad-debug-helper{{end}}</title>
     <style>
       :root {
         color-scheme: light;
@@ -319,7 +322,7 @@ const baseTemplate = `
     <div class="shell">
       <div class="masthead">
         <div>
-          <div class="title">nomad-debug-helper</div>
+          <div class="title">{{if eq .Layout.Product "consul"}}consul-debug-helper{{else}}nomad-debug-helper{{end}}</div>
           <div class="subtitle">{{.SourcePath}}</div>
           {{if ne .SourcePath .RootPath}}
           <div class="subtitle">Resolved bundle root: {{.RootPath}}</div>
@@ -359,9 +362,35 @@ const overviewTemplate = `
         <div class="value">{{.SourceKind}}</div>
       </div>
       <div class="stat">
-        <span class="eyebrow">Agent Version</span>
+        <span class="eyebrow">{{if eq .Layout.Product "consul"}}Consul Version{{else}}Nomad Version{{end}}</span>
         <div class="value">{{if .Metadata.AgentVersion}}{{.Metadata.AgentVersion}}{{else}}unknown{{end}}</div>
       </div>
+      {{if eq .Layout.Product "consul"}}
+      {{if .Metadata.Datacenter}}
+      <div class="stat">
+        <span class="eyebrow">Datacenter</span>
+        <div class="value">{{.Metadata.Datacenter}}</div>
+      </div>
+      {{end}}
+      {{if .Metadata.NodeName}}
+      <div class="stat">
+        <span class="eyebrow">Node</span>
+        <div class="value">{{.Metadata.NodeName}}</div>
+      </div>
+      {{end}}
+      {{if .Metadata.DebugDuration}}
+      <div class="stat">
+        <span class="eyebrow">Capture Duration</span>
+        <div class="value">{{.Metadata.DebugDuration}}</div>
+      </div>
+      {{end}}
+      {{if .Metadata.DebugInterval}}
+      <div class="stat">
+        <span class="eyebrow">Interval</span>
+        <div class="value">{{.Metadata.DebugInterval}}</div>
+      </div>
+      {{end}}
+      {{end}}
     </div>
   </section>
 
@@ -397,11 +426,11 @@ const overviewTemplate = `
       </thead>
       <tbody>
         {{range .Metadata.Documents}}
-        <tr>
-          <td><a href="/files?path={{.Path}}">{{.Path}}</a></td>
-          <td>{{if .Error}}<span class="warning">{{.Error}}</span>{{else}}parsed{{end}}</td>
-        </tr>
-        {{end}}
+      <tr>
+        <td><a href="/files?path={{.Path}}">{{.Path}}</a></td>
+        <td>{{if .Error}}{{if eq .Error "array (not a metadata object)"}}<span class="muted">{{.Error}}</span>{{else}}<span class="warning">{{.Error}}</span>{{end}}{{else}}parsed{{end}}</td>
+      </tr>
+      {{end}}
       </tbody>
     </table>
     {{else}}
@@ -456,7 +485,12 @@ const filesTemplate = `
           <td><span class="pill">{{.Category}}</span></td>
           <td>{{.SizeHuman}}</td>
           <td>{{if and .AgentID (ne .AgentRole "unknown")}}{{.AgentRole}}/{{.AgentID}}{{else}}<span class="muted">n/a</span>{{end}}</td>
-          <td>{{if .AnalyzeURL}}<a href="{{.AnalyzeURL}}" target="_blank">{{.AnalyzeLabel}}</a>{{else}}<span class="muted">n/a</span>{{end}}</td>
+          <td>
+            {{if .AnalyzeURL}}<a href="{{.AnalyzeURL}}" target="_blank">{{.AnalyzeLabel}}</a>{{end}}
+            {{if .MergeURL}}&nbsp;·&nbsp;<a href="{{.MergeURL}}" target="_blank" title="Merge all intervals into one flame graph">Merge all</a>{{end}}
+            {{if .DiffURL}}&nbsp;·&nbsp;<a href="{{.DiffURL}}" target="_blank" title="Diff vs interval 0 — shows what grew or shrank">Diff vs 0</a>{{end}}
+            {{if not .AnalyzeURL}}<span class="muted">n/a</span>{{end}}
+          </td>
         </tr>
         {{end}}
       </tbody>
