@@ -19,6 +19,7 @@ import (
 // cluster/agent-self.json.
 var metadataNames = map[string]struct{}{
 	"debug.json":    {},
+	"index.json":    {}, // Consul's index.json is a proper object; Nomad's is a file-path array (decode fails gracefully)
 	"manifest.json": {},
 	"meta.json":     {},
 	"metadata.json": {},
@@ -183,7 +184,34 @@ func detectAgent(relPath string) (AgentRole, string) {
 			return RoleClient, ""
 		}
 	}
+
+	// Consul's per-interval snapshot directories are named as ISO 8601
+	// timestamps (e.g. "2026-08-03T20-52-10Z"). When a file lives directly
+	// inside such a directory, use the directory name as the AgentID so the
+	// file browser can show which interval snapshot each profile came from.
+	if len(parts) == 2 && isConsulIntervalDir(parts[0]) {
+		return RoleUnknown, parts[0]
+	}
+
 	return RoleUnknown, ""
+}
+
+// isConsulIntervalDir reports whether name looks like one of `consul debug`'s
+// per-interval snapshot directory names. These follow the pattern
+// "YYYY-MM-DDTHH-MM-SSZ" (colons in the time component are replaced with
+// dashes to be filesystem-safe), e.g. "2026-08-03T20-52-10Z".
+func isConsulIntervalDir(name string) bool {
+	// Minimum length: "2006-01-02T15-04-05Z" = 20 chars
+	if len(name) < 20 {
+		return false
+	}
+	// Must start with 4 digits and a dash (year prefix).
+	for i := 0; i < 4; i++ {
+		if name[i] < '0' || name[i] > '9' {
+			return false
+		}
+	}
+	return name[4] == '-'
 }
 
 func readPreview(path string, limit int64) ([]byte, error) {
@@ -199,4 +227,59 @@ func readPreview(path string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	return buf[:n], nil
+}
+
+// pprofStem returns the directory and type stem for a pprof interval file
+// (e.g. "client/abc/heap_0003.prof" → dir="client/abc", stem="heap"),
+// and ok=true only when the file matches the `<stem>_<digits>.prof` pattern
+// used by both `nomad operator debug` and `consul debug`.
+func pprofStem(relPath string) (dir, stem string, ok bool) {
+	if filepath.Ext(relPath) != ".prof" {
+		return "", "", false
+	}
+	base := strings.TrimSuffix(filepath.Base(relPath), ".prof")
+	dir = filepath.Dir(relPath)
+	if dir == "." {
+		dir = ""
+	}
+
+	// Find the last underscore followed only by digits.
+	idx := strings.LastIndex(base, "_")
+	if idx < 0 {
+		return "", "", false
+	}
+	suffix := base[idx+1:]
+	for _, c := range suffix {
+		if c < '0' || c > '9' {
+			return "", "", false
+		}
+	}
+	if len(suffix) == 0 {
+		return "", "", false
+	}
+	return dir, base[:idx], true
+}
+
+// PprofSiblings returns all pprof files in files that share the same
+// directory and type stem as f (e.g. all heap_*.prof for the same agent),
+// sorted by RelPath. Returns nil when f is not an interval pprof file.
+func PprofSiblings(files []FileInfo, f FileInfo) []FileInfo {
+	dir, stem, ok := pprofStem(f.RelPath)
+	if !ok {
+		return nil
+	}
+	var siblings []FileInfo
+	for _, candidate := range files {
+		if candidate.AnalysisTool != AnalysisToolPprof {
+			continue
+		}
+		cDir, cStem, cOk := pprofStem(candidate.RelPath)
+		if cOk && cDir == dir && cStem == stem {
+			siblings = append(siblings, candidate)
+		}
+	}
+	sort.Slice(siblings, func(i, j int) bool {
+		return siblings[i].RelPath < siblings[j].RelPath
+	})
+	return siblings
 }

@@ -14,6 +14,13 @@ import (
 // file and redirects the browser to its web UI, mirroring vault-debug-helper's
 // pprof.go launcher. Unlike that implementation, the child process is bound
 // to the server's shutdown context so it's killed on exit instead of leaking.
+//
+// Optional query parameter "mode":
+//   - (absent) — open the single file normally
+//   - "diff"   — open with -diff_base pointing at interval 0 of the same type;
+//                shows what grew/shrank between interval 0 and this file
+//   - "merge"  — pass all sibling interval files to go tool pprof so they are
+//                merged into one aggregate flame graph
 func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 	relPath := r.URL.Query().Get("path")
 	if relPath == "" {
@@ -32,7 +39,18 @@ func (s *Server) handleAnalyze(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	port, err := s.launchAnalysisTool(file)
+	mode := r.URL.Query().Get("mode")
+
+	var port int
+	var err error
+	switch mode {
+	case "diff":
+		port, err = s.launchDiff(file)
+	case "merge":
+		port, err = s.launchMerge(file)
+	default:
+		port, err = s.launchAnalysisTool(file)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -71,5 +89,71 @@ func (s *Server) launchAnalysisTool(file bundle.FileInfo) (int, error) {
 		_ = cmd.Wait()
 	}()
 
+	return port, nil
+}
+
+// launchDiff opens `go tool pprof -diff_base <interval0> <file>` so the flame
+// graph shows what grew (positive) or shrank (negative) relative to interval 0.
+// Only meaningful for pprof files; trace files do not support -diff_base.
+func (s *Server) launchDiff(file bundle.FileInfo) (int, error) {
+	if file.AnalysisTool != bundle.AnalysisToolPprof {
+		return 0, fmt.Errorf("diff mode is only supported for pprof profiles, not %s", file.AnalysisTool)
+	}
+
+	siblings := bundle.PprofSiblings(s.raw.Files, file)
+	if len(siblings) == 0 {
+		return 0, fmt.Errorf("%s has no sibling interval files to diff against", file.RelPath)
+	}
+	base := siblings[0] // lowest RelPath = interval 0000
+	if base.RelPath == file.RelPath {
+		return 0, fmt.Errorf("%s is already interval 0; nothing to diff against", file.RelPath)
+	}
+
+	port := 20000 + rand.Intn(45535)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+	cmd := exec.CommandContext(s.ctx, "go", "tool", "pprof",
+		"-http", addr, "-no_browser",
+		"-diff_base", base.AbsPath,
+		file.AbsPath,
+	)
+	if err := cmd.Start(); err != nil {
+		return 0, fmt.Errorf("start pprof diff: %w", err)
+	}
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		_ = cmd.Wait()
+	}()
+	return port, nil
+}
+
+// launchMerge opens `go tool pprof` with all sibling interval files so they
+// are automatically merged into one aggregate profile.
+func (s *Server) launchMerge(file bundle.FileInfo) (int, error) {
+	if file.AnalysisTool != bundle.AnalysisToolPprof {
+		return 0, fmt.Errorf("merge mode is only supported for pprof profiles, not %s", file.AnalysisTool)
+	}
+
+	siblings := bundle.PprofSiblings(s.raw.Files, file)
+	if len(siblings) < 2 {
+		return 0, fmt.Errorf("%s has fewer than 2 sibling interval files to merge", file.RelPath)
+	}
+
+	port := 20000 + rand.Intn(45535)
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
+
+	args := []string{"tool", "pprof", "-http", addr, "-no_browser"}
+	for _, s := range siblings {
+		args = append(args, s.AbsPath)
+	}
+	cmd := exec.CommandContext(s.ctx, "go", args...)
+	if err := cmd.Start(); err != nil {
+		return 0, fmt.Errorf("start pprof merge: %w", err)
+	}
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		_ = cmd.Wait()
+	}()
 	return port, nil
 }
