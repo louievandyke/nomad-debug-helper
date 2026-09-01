@@ -63,6 +63,13 @@ func (s *Server) handleMetricsJSON(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if prefix := strings.TrimSpace(r.URL.Query().Get("prefix")); prefix != "" {
+		if err := json.NewEncoder(w).Encode(filterTimeSeriesByPrefix(series, prefix)); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
 	if err := json.NewEncoder(w).Encode(metricsJSONResponse{Metrics: series}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -102,6 +109,19 @@ func filterTimeSeries(series []TimeSeriesMetric, name string) []TimeSeriesMetric
 	filtered := make([]TimeSeriesMetric, 0)
 	for _, s := range series {
 		if s.Name == name {
+			filtered = append(filtered, s)
+		}
+	}
+	return filtered
+}
+
+// filterTimeSeriesByPrefix returns all series whose names start with prefix.
+// Used by the Consul dashboard to match node-qualified metric names like
+// "consul_<nodename>_autopilot_healthy" without hardcoding the node name.
+func filterTimeSeriesByPrefix(series []TimeSeriesMetric, prefix string) []TimeSeriesMetric {
+	filtered := make([]TimeSeriesMetric, 0)
+	for _, s := range series {
+		if strings.HasPrefix(s.Name, prefix) {
 			filtered = append(filtered, s)
 		}
 	}

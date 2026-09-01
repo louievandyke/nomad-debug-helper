@@ -11,6 +11,7 @@ import (
 )
 
 var bundleRootMarkers = map[string]struct{}{
+	// Nomad markers
 	"client":        {},
 	"cluster":       {},
 	"interval":      {},
@@ -18,6 +19,14 @@ var bundleRootMarkers = map[string]struct{}{
 	"metadata.json": {},
 	"server":        {},
 	"summary.json":  {},
+	// Consul markers (consul debug)
+	"agent.json":     {},
+	"consul.log":     {},
+	"host.json":      {},
+	"index.json":     {},
+	"listpeers.json": {},
+	"ports.json":     {},
+	"trace.out":      {},
 }
 
 func Open(path string) (*Bundle, error) {

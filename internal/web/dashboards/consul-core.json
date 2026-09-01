@@ -1,0 +1,538 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Core Consul cluster metrics captured by consul debug",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?prefix=consul_",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "filters": [
+            { "field": "name", "operator": "contains", "value": "_autopilot_healthy" }
+          ],
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "Value", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Autopilot Healthy",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 4, "y": 0 },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?prefix=consul_",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "filters": [
+            { "field": "name", "operator": "contains", "value": "_raft_applied_index" }
+          ],
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "Value", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Raft Applied Index",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 8, "y": 0 },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?prefix=consul_",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "filters": [
+            { "field": "name", "operator": "contains", "value": "_members_servers" }
+          ],
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "Value", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Server Members",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 4, "x": 12, "y": 0 },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "text": {},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?prefix=consul_",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "filters": [
+            { "field": "name", "operator": "contains", "value": "_state_service_instances" }
+          ],
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "Value", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Service Instances",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 5,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?name=consul_raft_commitTime",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "mean ms", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Raft Commit Time (mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 6,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?name=consul_raft_leader_dispatchLog",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "mean ms", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Raft Leader Dispatch Log (mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 7,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?prefix=consul_",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "filters": [
+            { "field": "name", "operator": "contains", "value": "_runtime_num_goroutines" }
+          ],
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "goroutines", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Runtime Goroutines",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "id": 8,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?prefix=consul_",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "filters": [
+            { "field": "name", "operator": "contains", "value": "_runtime_alloc_bytes" }
+          ],
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "bytes", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Heap Alloc Bytes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "id": 9,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?name=consul_memberlist_gossip",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "mean ms", "type": "number" }
+          ]
+        }
+      ],
+      "title": "Memberlist Gossip (mean)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "yesoreyeram-infinity-datasource", "uid": "default-infinity" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": true,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "id": 10,
+      "options": {
+        "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      },
+      "pluginVersion": "8.1.4",
+      "targets": [
+        {
+          "refId": "A",
+          "type": "json",
+          "source": "url",
+          "format": "timeseries",
+          "url": "/api/metrics/json?name=consul_acl_ResolveToken",
+          "url_options": { "method": "GET" },
+          "parser": "jq-backend",
+          "root_selector": "",
+          "columns": [
+            { "selector": "timestamp", "text": "Time", "type": "timestamp" },
+            { "selector": "value", "text": "mean ms", "type": "number" }
+          ]
+        }
+      ],
+      "title": "ACL Resolve Token (mean)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["consul"],
+  "templating": { "list": [] },
+  "time": {
+    "from": "{{TEMPLATE_TIME_FROM}}",
+    "to": "{{TEMPLATE_TIME_TO}}"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Consul Core Metrics",
+  "uid": "consul-core-metrics",
+  "version": 1
+}

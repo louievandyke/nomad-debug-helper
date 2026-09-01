@@ -28,6 +28,12 @@ type Metadata struct {
 	CreatedAt     string
 	MetadataFiles []string
 	Documents     []Document
+	// Consul-specific fields (empty for Nomad bundles)
+	Datacenter     string
+	NodeName       string
+	DebugInterval  string
+	DebugDuration  string
+	DebugTargets   []string
 }
 
 type Document struct {
@@ -45,6 +51,8 @@ type File struct {
 	ContentType  string
 	AnalyzeURL   string
 	AnalyzeLabel string
+	DiffURL      string // diff vs interval 0; empty when not applicable
+	MergeURL     string // merge all intervals; empty when not applicable
 }
 
 // AnalyzeLabel returns the human-readable action label for a pprof artifact,
@@ -86,6 +94,20 @@ func Build(raw *bundle.Bundle, info layout.Info) (*Bundle, error) {
 			viewFile.AnalyzeLabel = label
 			viewFile.AnalyzeURL = "/analyze?path=" + url.QueryEscape(file.RelPath)
 		}
+		// Diff and merge are only meaningful for multi-interval pprof files
+		// (not trace files, which use a different binary format).
+		if file.AnalysisTool == bundle.AnalysisToolPprof {
+			siblings := bundle.PprofSiblings(raw.Files, file)
+			encodedPath := url.QueryEscape(file.RelPath)
+			// Diff: only show when this file is not already interval 0.
+			if len(siblings) > 1 && siblings[0].RelPath != file.RelPath {
+				viewFile.DiffURL = "/analyze?mode=diff&path=" + encodedPath
+			}
+			// Merge: available from any interval as long as there are ≥2 siblings.
+			if len(siblings) >= 2 {
+				viewFile.MergeURL = "/analyze?mode=merge&path=" + encodedPath
+			}
+		}
 		view.Files = append(view.Files, viewFile)
 	}
 
@@ -121,6 +143,11 @@ func Build(raw *bundle.Bundle, info layout.Info) (*Bundle, error) {
 
 	if view.Metadata.AgentVersion == "" {
 		view.Warnings = append(view.Warnings, "No agent version was detected from the discovered metadata files.")
+	}
+
+	// Populate Consul-specific metadata fields when the bundle product is consul.
+	if info.Product == "consul" {
+		populateConsulMetadata(raw, &view.Metadata)
 	}
 
 	return view, nil
@@ -190,6 +217,45 @@ func nomadAgentSelfVersion(file bundle.FileInfo) string {
 	return strings.TrimSpace(payload.Config.Version.Version)
 }
 
+// populateConsulMetadata reads Consul-specific fields from agent.json and
+// index.json and fills them into the Metadata struct. Best-effort: any read
+// or parse failure is silently skipped.
+func populateConsulMetadata(raw *bundle.Bundle, meta *Metadata) {
+	if file, ok := findByBasename(raw, "agent.json"); ok {
+		if file.Size <= 1<<20 {
+			if content, err := os.ReadFile(file.AbsPath); err == nil {
+				var payload struct {
+					Config struct {
+						Datacenter string `json:"Datacenter"`
+						NodeName   string `json:"NodeName"`
+					} `json:"Config"`
+				}
+				if json.Unmarshal(content, &payload) == nil {
+					meta.Datacenter = payload.Config.Datacenter
+					meta.NodeName = payload.Config.NodeName
+				}
+			}
+		}
+	}
+
+	if file, ok := findByBasename(raw, "index.json"); ok {
+		if file.Size <= 1<<20 {
+			if content, err := os.ReadFile(file.AbsPath); err == nil {
+				var payload struct {
+					Interval string   `json:"Interval"`
+					Duration string   `json:"Duration"`
+					Targets  []string `json:"Targets"`
+				}
+				if json.Unmarshal(content, &payload) == nil {
+					meta.DebugInterval = payload.Interval
+					meta.DebugDuration = payload.Duration
+					meta.DebugTargets = payload.Targets
+				}
+			}
+		}
+	}
+}
+
 // consulAgentVersion reads `consul debug`'s agent.json, whose Config.Version
 // is a plain semver string -- unlike Nomad's nested VersionInfo object --
 // confirmed against a real capture.
@@ -229,6 +295,14 @@ func parseMetadataDocument(file bundle.FileInfo) Document {
 
 	var raw map[string]any
 	if err := json.Unmarshal(content, &raw); err != nil {
+		// If the top-level value is a JSON array rather than an object, treat
+		// it as a known non-metadata shape (Nomad's index.json is a flat
+		// file-path array) and record a neutral note instead of an error.
+		var arr []any
+		if json.Unmarshal(content, &arr) == nil {
+			document.Error = "array (not a metadata object)"
+			return document
+		}
 		document.Error = fmt.Sprintf("json decode failed: %v", err)
 		return document
 	}
